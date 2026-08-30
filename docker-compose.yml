@@ -1,0 +1,52 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: skyguard-mysql
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: skyguard_root_pass
+      MYSQL_DATABASE: skyguard_ai
+      MYSQL_USER: skyguard_user
+      MYSQL_PASSWORD: skyguard_pass
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    container_name: skyguard-backend
+    restart: always
+    environment:
+      DATABASE_URL: mysql+pymysql://skyguard_user:skyguard_pass@mysql:3306/skyguard_ai
+      PRIMARY_PROVIDER: open_meteo
+      JWT_SECRET: skyguard-production-meteorological-super-secret-key-2026
+      WEATHER_REFRESH_SECONDS: 60
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
+    container_name: skyguard-frontend
+    restart: always
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
